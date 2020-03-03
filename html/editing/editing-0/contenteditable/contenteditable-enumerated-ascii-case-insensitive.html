@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<link rel="help" href="https://html.spec.whatwg.org/#attr-contenteditable">
+<link rel="help" href="https://html.spec.whatwg.org/#enumerated-attribute">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<div contenteditable="false"></div>
+<div contenteditable="FaLsE"></div>
+<div contenteditable="falſe"></div>
+<div></div>
+<script>
+test(() => {
+  const div = document.querySelectorAll("div");
+
+  assert_equals(div[0].contentEditable, "false");
+  assert_equals(div[1].contentEditable, "false");
+  assert_equals(div[2].contentEditable, "inherit");
+
+  assert_throws("SyntaxError", () => {
+    div[3].contentEditable = "falſe";
+  });
+});
+</script>

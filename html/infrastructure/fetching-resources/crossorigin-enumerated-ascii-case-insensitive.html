@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<link rel="help" href="https://html.spec.whatwg.org/#cors-settings-attribute">
+<link rel="help" href="https://html.spec.whatwg.org/#enumerated-attribute">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<img crossorigin="use-credentials">
+<img crossorigin="UsE-cReDenTiAlS">
+<img crossorigin="uſe-credentialſ">
+<img crossorigin="anonymous">
+<img crossorigin="AnOnYmOuS">
+<img crossorigin="anonymouſ">
+<script>
+test(() => {
+  const img = document.querySelectorAll("img");
+
+  assert_equals(img[0].crossOrigin, "use-credentials");
+  assert_equals(img[1].crossOrigin, "use-credentials");
+  assert_equals(img[2].crossOrigin, "anonymous");
+  assert_equals(img[3].crossOrigin, "anonymous");
+
+  // vacuous: the invalid value default is currently anonymous, so even if the
+  // UA treats this as invalid, the observable behaviour would still be correct
+  assert_equals(img[4].crossOrigin, "anonymous");
+
+  // vacuous: the invalid value default is currently anonymous, so even if the
+  // UA treats this as valid, the observable behaviour would still be correct
+  assert_equals(img[5].crossOrigin, "anonymous");
+});
+</script>

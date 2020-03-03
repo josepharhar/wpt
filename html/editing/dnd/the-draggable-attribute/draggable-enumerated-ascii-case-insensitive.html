@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<link rel="help" href="https://html.spec.whatwg.org/#the-draggable-attribute">
+<link rel="help" href="https://html.spec.whatwg.org/#enumerated-attribute">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<!--
+  We use <img> elements here so the invalid value default (auto) can be
+  distinguished from false through the IDL attribute. Most other elements
+  return true from the IDL attribute for the auto state.
+-->
+<img draggable="false">
+<img draggable="FaLsE">
+<img draggable="falſe">
+<script>
+test(() => {
+  const img = document.querySelectorAll("img");
+
+  assert_equals(img[0].draggable, false);
+  assert_equals(img[1].draggable, false);
+  assert_equals(img[2].draggable, true);
+});
+</script>
