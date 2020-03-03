@@ -4,6 +4,11 @@ import glob
 
 def main(request, response):
     host_piece = request.url_parts.hostname.split(".")[0]
+    # Reserve 'op100' for testing incorrect mime type for manifest file.
+    if host_piece == "op100":
+        content_type = "text/plain"
+    else:
+        content_type = "application/originpolicy+json"
 
     filepath_pattern = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(
         __file__)), "../origin-policy/policies/", "{} *.json".format(host_piece)))
@@ -15,4 +20,4 @@ def main(request, response):
 
     with open(matches[0]) as f:
         data = f.read()
-        return 200, [('Content-Type', 'application/originpolicy+json')], data
+        return 200, [('Content-Type', content_type)], data
