@@ -5,6 +5,7 @@
 <script src="/resources/testharnessreport.js"></script>
 <script src="/common/get-host-info.sub.js"></script>
 <script>
+// See also: ./shared-worker-cache-storage.https.html
 
 function remote(path) {
   const REMOTE_ORIGIN = get_host_info().HTTPS_REMOTE_ORIGIN;
@@ -12,7 +13,7 @@ function remote(path) {
 }
 
 const iframe_path = "./resources/iframe.html?pipe=";
-const dedicated_worker_path = "./dedicated-worker.js?pipe=";
+const dedicated_worker_path = "./universal-worker.js?pipe=";
 const ressource_path = "/images/blue.png?pipe=";
 
 const coep_header= {
