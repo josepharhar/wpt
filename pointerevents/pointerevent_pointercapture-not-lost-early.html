@@ -1,0 +1,248 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Set/Release capture + relatedTarget</title>
+        <meta name="viewport" content="width=device-width">
+        <link rel="help" href="https://bugs.chromium.org/p/chromium/issues/detail?id=1053385">
+        <script src="/resources/testharness.js"></script>
+        <script src="/resources/testharnessreport.js"></script>
+        <script src="/resources/testdriver.js"></script>
+        <script src="/resources/testdriver-actions.js"></script>
+        <script src="/resources/testdriver-vendor.js"></script>
+
+        <style>
+            .container {
+               height: 500px;
+               width: 500px;
+               border: 1px solid black;
+               overflow: hidden;
+               position: relative;
+            }
+
+            #box {
+               height: 50px;
+               width: 50px;
+               background: red;
+               position: absolute;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Pointer Events Capture Test - capture should not be lost early</h1>
+        <h4>
+            Test Description: This test checks if setCapture/pointerup functions
+            works properly. Complete the following actions:
+            <ol>
+                <li> Put your mouse over the red box
+                <li> Press and hold left mouse button. Box will call setPointerCapture
+                <li> Press right button and release
+                <li> Pointer capture should not be lost
+                <li> Press right button again and release
+                <li> Pointer capture should not be lost
+                <li> Release left mouse button. lostpointercapture is called
+            </ol>
+        </h4>
+        Test passes if the proper behavior of the events is observed.
+        <div class="container">
+           <div id="box"></div>
+        </div>
+        <div id="log"></div>
+    </body>
+    <script>
+      var PhaseEnum = {
+              WaitingForDown:       "down",
+              WaitingForUp:         "up",
+              UpDone :              "up_done"
+            };
+      function manual_wpttest(){
+        this.origin = {x:0, y:0};
+        this.position = {x:0, y:0};
+        this.deltaX = 0;
+        this.deltaY = 0;
+        var box = document.getElementById("box");
+
+        var logDiv = document.getElementById("log");
+        var that = this;
+        var currentPhase = PhaseEnum.WaitingForDown;
+
+        addEventListeners();
+
+        function addLog(message){
+          var messageDiv = document.createElement("div");
+          var textContent = document.createTextNode(message);
+          messageDiv.appendChild(textContent);
+          logDiv.appendChild(messageDiv);
+        }
+
+        function slide(event){
+          // move the target following the mouse
+          this.deltaX = event.clientX - this.origin.x
+          this.deltaY = event.clientY - this.origin.y
+          box.style.left = `${this.position.x + this.deltaX}px`;
+          box.style.top = `${this.position.y + this.deltaY}px`;
+        };
+        var slideBound = slide.bind(that);
+        this.handle_pointerdown = function(target, event){
+          this.origin = { x: event.clientX, y: event.clientY };
+          target.addEventListener("pointermove", slideBound);
+          currentPhase = PhaseEnum.WaitingForUp;
+        };
+        this.handle_pointerup = function(target, event){
+          target.removeEventListener("pointermove", slideBound);
+          currentPhase = PhaseEnum.UpDone;
+        };
+        this.testLostPointerCapture = function(event){
+          if(event.buttons === 0 &&
+           currentPhase === PhaseEnum.UpDone){
+            addLog("Test Passed!");
+          }
+          else{
+            addLog("Test Failed!");
+            if(event.buttons !== 0){
+              addLog("Reason:Not all mouse buttons released!");
+            }
+            if(currentPhase !== PhaseEnum.UpDone){
+              addLog("Reason:Lost Pointer Capture fired before Pointer Up!");
+            }
+          }
+        };
+        this.done = function(){
+          removeEventListeners();
+          addLog("Please refresh the page to restart the test!")
+        }
+      }
+
+      function removeEventListeners(){
+        box.removeEventListener('pointerdown', handle_pointerdown);
+        box.removeEventListener('pointerup', handle_pointerup);
+        box.removeEventListener('contextmenu', handle_contextmenu);
+        box.removeEventListener('lostpointercapture',
+          handle_lostpointercapture);
+      }
+
+      function addEventListeners(){
+        box.addEventListener('pointerdown', handle_pointerdown);
+        box.addEventListener('pointerup', handle_pointerup);
+        box.addEventListener('contextmenu', handle_contextmenu);
+        box.addEventListener('lostpointercapture',
+          handle_lostpointercapture);
+      }
+
+      function wpttest(asyncTest, resolve, reject){
+        var thisTest = asyncTest;
+        var currentPhase = PhaseEnum.WaitingForDown;
+        var events = [];
+        thisTest.add_cleanup(function(){
+          removeEventListeners();
+        });
+
+        addEventListeners();
+
+        this.handle_pointerdown = function(target, event){
+          thisTest.step(function(){
+            // once receiving a pointer down and the pointer is captured,
+            // no other mousedown should send pointerdown events during the test
+            assert_true(currentPhase === PhaseEnum.WaitingForDown,
+              "Current Phase should be " + PhaseEnum.WaitingForDown);
+            currentPhase = PhaseEnum.WaitingForUp;
+            events.push("target@pointerdown");
+          });
+        };
+        this.handle_pointerup = function(target, event){
+          thisTest.step(function(){
+            assert_true(event.buttons === 0,
+             'pointerup should happen when all buttons are released.');
+            assert_true(currentPhase === PhaseEnum.WaitingForUp,
+              "Current Phase should be " + PhaseEnum.WaitingForUp);
+            currentPhase = PhaseEnum.UpDone;
+            events.push("target@pointerup");
+          });
+        };
+        this.testLostPointerCapture = function(event){
+          thisTest.step(function(){
+            events.push("target@lostpointercapture");
+            assert_true(currentPhase === PhaseEnum.UpDone,
+              "Current Phase should be " + PhaseEnum.UpDone + "." +
+              'lostpointercapture should happen after pointerup event.');
+            assert_true(event.buttons === 0,
+             'lostpointercapture should happen when all buttons are released.');
+            assert_array_equals(events, ["target@pointerdown",
+              "target@pointerup", "target@lostpointercapture"]);
+            resolve();
+          });
+        };
+        this.done = function(){
+          thisTest.done();
+        }
+      }
+
+      var current_test = null;
+      // window.promise_test is only defined when running the
+      // test using testharness.js
+      // if window.promise_test is not defined we'll run the manual testing
+      // path
+      if(!window.promise_test){
+        current_test = new manual_wpttest();
+      }
+
+      function handle_pointerdown(e){
+        box.setPointerCapture(e.pointerId);
+        current_test.handle_pointerdown(box, e);
+      }
+
+      function handle_pointerup(e){
+        box.releasePointerCapture(e.pointerId);
+        current_test.handle_pointerup(box, e);
+      }
+
+      function handle_contextmenu(e){
+        e.preventDefault();
+      }
+
+      function handle_lostpointercapture(e){
+        current_test.testLostPointerCapture(e);
+        current_test.done();
+      }
+
+      if(window.promise_test){
+        promise_test(function(t){
+          return new Promise(function(resolve, reject){
+             current_test = new wpttest(t, resolve, reject);
+             var actions = new test_driver.Actions();
+             var actions_promise = actions
+                .pointerMove(0, 0, {origin: box})
+
+                .pointerDown({button: actions.ButtonType.LEFT})
+                // Ensure clicking other buttons while a first button has
+                // captured the pointer doesn't release the capture
+                .pointerDown({button: actions.ButtonType.RIGHT})
+                .pointerUp({button: actions.ButtonType.RIGHT})
+                .pointerDown({button: actions.ButtonType.RIGHT})
+                .pointerUp({button: actions.ButtonType.RIGHT})
+                .pointerUp({button: actions.ButtonType.LEFT})
+                .send();
+          })
+        }, "Pointer Events Capture Test - capture not lost early");
+
+        promise_test(function(t){
+          return new Promise(function(resolve, reject){
+             current_test = new wpttest(t, resolve, reject);
+             var actions = new test_driver.Actions();
+             var actions_promise = actions
+                .pointerMove(0, 0, {origin: box})
+
+                .pointerDown({button: actions.ButtonType.LEFT})
+                // Ensure clicking other buttons while a first button has
+                // captured the pointer doesn't release the capture
+                .pointerDown({button: actions.ButtonType.RIGHT})
+                .pointerUp({button: actions.ButtonType.LEFT})
+                .pointerDown({button: actions.ButtonType.LEFT})
+                .pointerUp({button: actions.ButtonType.RIGHT})
+                .pointerUp({button: actions.ButtonType.LEFT})
+                .send();
+          })
+        }, "Pointer Events Capture Test - capture not lost early" +
+           " combination of left and right clicks.");
+      }
+    </script>
+</html>
